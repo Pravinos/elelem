@@ -35,9 +35,17 @@ function toApiMessage(message: DisplayMessage): ChatMessage {
   };
 }
 
+function createMessageId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function createMessage(role: ChatMessage["role"], content: string): DisplayMessage {
   return {
-    id: crypto.randomUUID(),
+    id: createMessageId(),
     role,
     content,
     createdAt: new Date().toISOString(),

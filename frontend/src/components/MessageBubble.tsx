@@ -24,8 +24,8 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       ].join(" ")}
     >
       {isUser ? (
-        <div className="max-w-[75%]">
-          <div className="max-w-[72%] rounded-[18px_18px_4px_18px] border border-blue-300/35 bg-blue-500/20 px-4 py-2.5 text-sm leading-relaxed text-blue-50">
+        <div className="max-w-[78%] text-right">
+          <div className="text-sm leading-relaxed text-slate-100">
             <p className="whitespace-pre-wrap">{message.content || " "}</p>
           </div>
           <p className="mt-1 text-right text-[11px] text-slate-500 opacity-0 transition group-hover:opacity-100">
@@ -33,18 +33,18 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           </p>
         </div>
       ) : (
-        <div className="flex max-w-[85%] items-start gap-3 py-1">
-          <div className="mt-0.5 h-7 w-7 shrink-0 rounded-full border border-slate-700 bg-slate-900 text-center text-xs font-semibold leading-[26px] text-slate-300">
+        <div className="flex max-w-[88%] items-start gap-3 py-0.5">
+          <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full border border-white/10 text-center text-[11px] font-semibold leading-[22px] text-slate-300/80">
             e
           </div>
-          <div className="min-w-0 rounded-[4px_18px_18px_18px] border border-blue-300/20 bg-blue-500/8 px-4 py-3 text-sm leading-[1.7] text-slate-100/90">
+          <div className="min-w-0 border-l border-white/10 pl-3 text-sm leading-[1.7] text-slate-100/90">
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
                 code({ children, ...props }) {
                   return (
                     <code
-                      className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[0.9em]"
+                      className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[0.9em]"
                       {...props}
                     >
                       {children}
@@ -53,7 +53,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
                 },
                 pre({ children }) {
                   return (
-                    <pre className="mb-2 overflow-x-auto rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-[0.9em]">
+                    <pre className="mb-2 overflow-x-auto rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-[0.9em]">
                       {children}
                     </pre>
                   );
