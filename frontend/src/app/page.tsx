@@ -82,9 +82,9 @@ export default function HomePage() {
                     <button
                       type="button"
                       onClick={() => handleSelectChat(chat.id)}
-                      className="w-full rounded-xl p-3 text-left"
+                      className="w-full rounded-xl p-3 pr-8 text-left"
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div>
                         <p
                           className={[
                             "truncate text-sm font-medium",
@@ -93,14 +93,16 @@ export default function HomePage() {
                         >
                           {chat.title}
                         </p>
-                        <span className="shrink-0 text-[11px] text-slate-400/45">
-                          {formatRelativeTime(chat.updated_at)}
-                        </span>
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         {isActive ? <span className="h-4 w-0.5 rounded-full bg-teal-400" /> : null}
                         <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-300/70">
                           {chat.model}
+                        </span>
+                      </div>
+                      <div className="mt-2 text-right">
+                        <span className="text-[11px] text-slate-400/45">
+                          {formatRelativeTime(chat.updated_at)}
                         </span>
                       </div>
                     </button>
@@ -188,9 +190,9 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => void handleStop()}
-                className="h-8 rounded-full bg-white/10 px-3 text-xs font-semibold text-white/80 transition hover:bg-white/20 hover:text-white"
+                className="inline-flex h-8 min-w-[64px] items-center justify-center rounded-full bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-500"
               >
-                [] Stop
+                Stop
               </button>
             ) : (
               <button
