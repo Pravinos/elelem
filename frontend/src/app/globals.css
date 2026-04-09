@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --bg: #0c0f12;
+  --bg: #070b1a;
   --panel: #131922;
   --panel-soft: #1a2230;
   --border: #273244;
-  --text: #ecf2ff;
+  --text: rgba(236, 242, 255, 0.85);
   --muted: #9fb0c7;
-  --accent: #28c6b0;
+  --accent: #3f63ff;
   --error: #ff6b7a;
 }
 
@@ -22,8 +22,9 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(1200px 600px at 90% -20%, rgba(40, 198, 176, 0.09), transparent 60%),
-    radial-gradient(1000px 700px at -10% 100%, rgba(38, 88, 255, 0.12), transparent 55%),
+    radial-gradient(1200px 600px at 90% -20%, rgba(63, 99, 255, 0.2), transparent 60%),
+    radial-gradient(1000px 700px at -10% 100%, rgba(40, 70, 200, 0.24), transparent 55%),
+    radial-gradient(900px 500px at 50% 120%, rgba(24, 36, 120, 0.22), transparent 60%),
     var(--bg);
   color: var(--text);
 }
@@ -39,4 +40,15 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #2d394b;
   border-radius: 999px;
+}
+
+@keyframes message-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -66,6 +66,7 @@ export async function sendMessage(
   model: string,
   messages: ChatMessage[],
   onToken: (token: string) => void,
+  onReader?: (reader: ReadableStreamDefaultReader<Uint8Array>) => void,
 ): Promise<void> {
   const response = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
@@ -87,6 +88,7 @@ export async function sendMessage(
   }
 
   const reader = response.body.getReader();
+  onReader?.(reader);
   const decoder = new TextDecoder();
   let buffer = "";
 

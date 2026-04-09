@@ -9,8 +9,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Ollama Chat",
-  description: "Self-hosted AI chat powered by Ollama",
+  title: "elelem",
+  description: "your local ai, your hardware, your rules.",
 };
 
 export default function RootLayout({

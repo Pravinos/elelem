@@ -1,9 +1,9 @@
-import { ChatMessage } from "@/lib/api";
+import { DisplayMessage } from "@/lib/types";
 
 import MessageBubble from "./MessageBubble";
 
 type ChatWindowProps = {
-  messages: ChatMessage[];
+  messages: DisplayMessage[];
   showTypingIndicator: boolean;
 };
 
@@ -12,15 +12,15 @@ export default function ChatWindow({
   showTypingIndicator,
 }: ChatWindowProps) {
   return (
-    <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-800/80 bg-slate-950/40 p-4">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
+    <div className="mx-4 mt-4 flex-1 overflow-y-auto rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+      <div className="mx-auto flex w-full max-w-[800px] flex-col gap-5">
         {messages.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-700 bg-slate-900/40 p-6 text-sm text-slate-400">
-            Start by choosing a model and sending a message.
+          <div className="flex min-h-[50vh] flex-col items-center justify-center text-center text-slate-300/30">
+            <p className="m-0 text-[0.85rem] text-slate-300/30">what do you want to know?</p>
           </div>
         ) : (
-          messages.map((message, idx) => (
-            <MessageBubble key={`${idx}-${message.role}`} message={message} />
+          messages.map((message) => (
+            <MessageBubble key={message.id} message={message} />
           ))
         )}
 

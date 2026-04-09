@@ -10,8 +10,8 @@ deployed as a monorepo on a Debian home server accessible over Tailscale.
 
 ## Stack
 
-- **Backend** — FastAPI, Python 3.11, httpx, Pydantic
-- **Frontend** — Next.js 14 (app router), TypeScript, Tailwind CSS
+- **Backend** — FastAPI, Python 3.11, httpx, Pydantic, aiosqlite
+- **Frontend** — Next.js 14 (app router), TypeScript, Tailwind CSS, react-markdown
 - **LLM runtime** — Ollama (runs native on host, not in Docker)
 - **Models** — `llama3.2:3b`, `qwen2.5:3b` (more can be pulled anytime)
 - **Network** — Tailscale for private access, Cloudflare Tunnel for phase 2
@@ -23,15 +23,16 @@ deployed as a monorepo on a Debian home server accessible over Tailscale.
 elelem/
 ├── backend/             # FastAPI app
 │   └── app/
-│       ├── routers/     # chat, models endpoints
-│       ├── services/    # ollama client, model manager, idle watcher
+│       ├── routers/     # chat, models, history endpoints
+│       ├── services/    # ollama client, model manager, idle watcher, sqlite db
 │       ├── middleware/  # API key auth
 │       └── schemas/     # Pydantic models
 ├── frontend/            # Next.js app
 │   └── src/
 │       ├── app/         # pages
-│       ├── components/  # ChatWindow, MessageBubble, ModelSelector
+│       ├── components/  # ChatWindow, MessageBubble (markdown), ModelSelector
 │       └── lib/         # typed API client
+├── data/                # sqlite db volume mount (created at runtime)
 ├── docker-compose.yml
 ├── docker-compose.prod.yml
 ├── .env.example
@@ -90,6 +91,7 @@ OLLAMA_BASE_URL=http://localhost:11434
 API_KEY=your_secret_key
 ALLOWED_ORIGINS=http://localhost:3000,http://<tailscale-ip>:3000
 IDLE_TIMEOUT_MINUTES=5
+DB_PATH=/app/data/elelem.db
 
 # Frontend
 NEXT_PUBLIC_API_URL=http://<tailscale-ip>:8000
@@ -113,6 +115,24 @@ docker compose up -d frontend
 ```
 
 Access at `http://<tailscale-ip>:3000` from any device on your Tailscale network.
+
+Chat history is persisted in SQLite at `DB_PATH` and survives container restarts when using the `./data:/app/data` volume.
+
+---
+
+## Frontend UX
+
+- Brand header copy intentionally uses lowercase: `elelem` + `your local ai, your hardware, your rules.`
+- Assistant messages support markdown + GFM (lists, code blocks, headings).
+- User messages stay plain text.
+- Model selector uses a custom chevron (native arrow hidden for cleaner spacing).
+- Chat history sidebar supports:
+  - New chat
+  - Load past chat
+  - Delete chat
+  - Active chat highlight
+  - Relative updated time labels
+  - Mobile overlay behavior (auto-closes after selecting a chat)
 
 ---
 
@@ -197,6 +217,93 @@ Immediately evict the current model from memory.
 
 `stream: false` — returns full response JSON.
 `stream: true` — returns `text/event-stream`, tokens arrive as SSE events.
+
+### `GET /api/history`
+Returns all chats ordered by most recent update.
+
+```json
+[
+  {
+    "id": "a2c5...",
+    "title": "explain docker networking",
+    "model": "llama3.2:3b",
+    "created_at": "2026-04-09T10:00:00+00:00",
+    "updated_at": "2026-04-09T10:01:00+00:00"
+  }
+]
+```
+
+### `POST /api/history`
+Creates a new chat record and optional initial messages.
+
+```json
+{
+  "model": "llama3.2:3b",
+  "messages": [
+    { "role": "user", "content": "explain docker networking" }
+  ]
+}
+```
+
+Returns chat summary:
+
+```json
+{
+  "id": "a2c5...",
+  "title": "explain docker networking",
+  "model": "llama3.2:3b",
+  "created_at": "2026-04-09T10:00:00+00:00",
+  "updated_at": "2026-04-09T10:00:00+00:00"
+}
+```
+
+### `GET /api/history/{chat_id}`
+Returns one chat with all messages.
+
+```json
+{
+  "id": "a2c5...",
+  "title": "explain docker networking",
+  "model": "llama3.2:3b",
+  "created_at": "2026-04-09T10:00:00+00:00",
+  "updated_at": "2026-04-09T10:01:00+00:00",
+  "messages": [
+    {
+      "id": "m1...",
+      "role": "user",
+      "content": "explain docker networking",
+      "created_at": "2026-04-09T10:00:00+00:00"
+    },
+    {
+      "id": "m2...",
+      "role": "assistant",
+      "content": "Docker networking lets containers communicate...",
+      "created_at": "2026-04-09T10:01:00+00:00"
+    }
+  ]
+}
+```
+
+### `PUT /api/history/{chat_id}`
+Appends messages and updates chat `updated_at`.
+
+```json
+{
+  "messages": [
+    { "role": "user", "content": "now compare bridge and host mode" },
+    { "role": "assistant", "content": "Bridge mode isolates containers..." }
+  ]
+}
+```
+
+Returns updated chat payload (same shape as `GET /api/history/{chat_id}`).
+
+### `DELETE /api/history/{chat_id}`
+Deletes the chat and all messages.
+
+```json
+{ "deleted": "a2c5..." }
+```
 
 ---
 
