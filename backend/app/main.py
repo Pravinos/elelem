@@ -1,4 +1,7 @@
 import os
+import asyncio
+from contextlib import asynccontextmanager
+from contextlib import suppress
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -7,12 +10,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.middleware.auth import APIKeyMiddleware
 from app.routers.chat import router as chat_router
 from app.routers.models import router as models_router
+from app.services.idle_watcher import idle_watcher_loop
+from app.services.model_manager import get_model_manager
 from app.services.ollama import check_ollama_health
 
 
 load_dotenv()
 
-app = FastAPI(title="Ollama Proxy API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    manager = get_model_manager()
+    task = asyncio.create_task(idle_watcher_loop(manager))
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        await manager.unload_current()
+
+
+app = FastAPI(title="Ollama Proxy API", lifespan=lifespan)
 
 app.add_middleware(APIKeyMiddleware)
 

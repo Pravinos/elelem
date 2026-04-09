@@ -1,10 +1,11 @@
 import json
-import os
 
 import httpx
 
+from app.core.config import settings
 
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+
+OLLAMA_BASE_URL = settings.OLLAMA_BASE_URL
 
 
 async def check_ollama_health() -> bool:
