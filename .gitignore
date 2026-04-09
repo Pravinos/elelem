@@ -10,6 +10,9 @@ out/
 # Environment files
 .env
 
+# Local persistent data
+data/
+
 # OS
 .DS_Store
 Thumbs.db

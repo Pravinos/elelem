@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.middleware.auth import APIKeyMiddleware
 from app.routers.chat import router as chat_router
+from app.routers.history import router as history_router
 from app.routers.models import router as models_router
+from app.services.database import init_database
 from app.services.idle_watcher import idle_watcher_loop
 from app.services.model_manager import get_model_manager
 from app.services.ollama import check_ollama_health
@@ -21,6 +23,7 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     manager = get_model_manager()
+    await init_database()
     task = asyncio.create_task(idle_watcher_loop(manager))
     try:
         yield
@@ -51,6 +54,7 @@ app.add_middleware(
 )
 
 app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(history_router, prefix="/api", tags=["history"])
 app.include_router(models_router, prefix="/api", tags=["models"])
 
 
