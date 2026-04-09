@@ -14,6 +14,8 @@ import {
 } from "@/lib/api";
 import { DisplayMessage } from "@/lib/types";
 
+const MAX_CONTEXT_MESSAGES = 20;
+
 function sortChats(chats: HistoryChatSummary[]) {
   return [...chats].sort((a, b) => b.updated_at.localeCompare(a.updated_at));
 }
@@ -50,6 +52,11 @@ function createMessage(role: ChatMessage["role"], content: string): DisplayMessa
     content,
     createdAt: new Date().toISOString(),
   };
+}
+
+function buildModelContext(messages: DisplayMessage[], nextUserMessage: DisplayMessage): ChatMessage[] {
+  const context = [...messages, nextUserMessage];
+  return context.slice(-MAX_CONTEXT_MESSAGES).map(toApiMessage);
 }
 
 function errorMessage(err: unknown, fallback: string): string {
@@ -97,6 +104,7 @@ export function useChatController() {
   const fetchedInitialRef = useRef(false);
   const activeReaderRef = useRef<ReadableStreamDefaultReader<Uint8Array> | null>(null);
   const stopRequestedRef = useRef(false);
+  const unsavedTurnsRef = useRef<ChatMessage[]>([]);
 
   useEffect(() => {
     if (fetchedInitialRef.current) {
@@ -164,6 +172,7 @@ export function useChatController() {
       return;
     }
 
+    unsavedTurnsRef.current = [];
     setActiveChatId(null);
     setMessages([]);
     setInput("");
@@ -180,6 +189,7 @@ export function useChatController() {
       setError(null);
       setPendingDeleteId(null);
       const chat = await getHistoryChat(chatId);
+      unsavedTurnsRef.current = [];
       setActiveChatId(chat.id);
       setSelectedModel(chat.model);
       setMessages(
@@ -261,7 +271,7 @@ export function useChatController() {
 
     const userMessage = createMessage("user", content);
     const assistantMessage = createMessage("assistant", "");
-    const historyWithUser = [...messages, userMessage].map(toApiMessage);
+    const historyWithUser = buildModelContext(messages, userMessage);
 
     setInput("");
     setError(null);
@@ -271,20 +281,8 @@ export function useChatController() {
     setMessages((prev) => [...prev, userMessage, assistantMessage]);
 
     let historyChatId = activeChatId;
-    const createdThisTurn = !activeChatId;
     let assistantContent = "";
     let streamFailed = false;
-
-    if (!historyChatId) {
-      try {
-        const created = await createHistoryChat(selectedModel, [toApiMessage(userMessage)]);
-        historyChatId = created.id;
-        setActiveChatId(created.id);
-        upsertHistory(created);
-      } catch (historyErr) {
-        setError(errorMessage(historyErr, "Failed to create chat history"));
-      }
-    }
 
     try {
       await sendMessage(
@@ -323,20 +321,30 @@ export function useChatController() {
     } finally {
       const stopped = stopRequestedRef.current;
 
-      if (historyChatId && (!streamFailed || stopped)) {
+      if (!streamFailed || stopped) {
         const assistantPayload: ChatMessage[] = assistantContent
           ? [{ role: "assistant", content: assistantContent }]
           : [];
-        const payload: ChatMessage[] = createdThisTurn
-          ? assistantPayload
-          : [{ role: "user", content }, ...assistantPayload];
+        const turnPayload: ChatMessage[] = [{ role: "user", content }, ...assistantPayload];
 
-        if (payload.length > 0) {
+        if (historyChatId) {
           try {
-            const updated = await appendHistoryMessages(historyChatId, payload);
+            const updated = await appendHistoryMessages(historyChatId, turnPayload);
             upsertHistory(toSummary(updated));
           } catch (historyErr) {
             setError(errorMessage(historyErr, "Failed to update chat history"));
+          }
+        } else {
+          unsavedTurnsRef.current = [...unsavedTurnsRef.current, ...turnPayload];
+
+          try {
+            const created = await createHistoryChat(selectedModel, unsavedTurnsRef.current);
+            historyChatId = created.id;
+            unsavedTurnsRef.current = [];
+            setActiveChatId(created.id);
+            upsertHistory(created);
+          } catch (historyErr) {
+            setError(errorMessage(historyErr, "Failed to create chat history"));
           }
         }
       }

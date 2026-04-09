@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from typing import Literal
 
 from app.services.database import append_messages, create_chat, delete_chat, get_chat, list_chats
 
@@ -8,7 +9,7 @@ router = APIRouter()
 
 
 class HistoryMessageIn(BaseModel):
-    role: str
+    role: Literal["user", "assistant", "system"]
     content: str
 
 

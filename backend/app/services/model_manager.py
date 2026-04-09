@@ -17,6 +17,8 @@ class ModelManager:
         self.last_used: datetime | None = None
         self.is_loading: bool = False
         self._lock = asyncio.Lock()
+        self._session_condition = asyncio.Condition()
+        self._active_sessions: int = 0
 
     async def load_model(self, model: str) -> None:
         await self._lock.acquire()
@@ -54,6 +56,24 @@ class ModelManager:
             self.is_loading = False
             if self._lock.locked():
                 self._lock.release()
+
+    async def acquire_inference_session(self, model: str) -> None:
+        async with self._session_condition:
+            while self.current_model is not None and self.current_model != model and self._active_sessions > 0:
+                await self._session_condition.wait()
+
+        await self.load_model(model)
+
+        async with self._session_condition:
+            self._active_sessions += 1
+            self.last_used = datetime.now(timezone.utc)
+
+    async def release_inference_session(self) -> None:
+        async with self._session_condition:
+            if self._active_sessions > 0:
+                self._active_sessions -= 1
+            self.last_used = datetime.now(timezone.utc)
+            self._session_condition.notify_all()
 
     async def _unload(self, model: str) -> None:
         logger.info("Unloading model: %s at %s", model, datetime.now(timezone.utc).isoformat())
@@ -109,6 +129,7 @@ class ModelManager:
             "last_used": self.last_used.isoformat() if self.last_used else None,
             "idle_seconds": idle_seconds,
             "is_loading": self.is_loading,
+            "active_sessions": self._active_sessions,
             "memory_used_gb": round(memory_used_gb, 3),
             "ram_free_gb": round(self._read_ram_free_gb(), 3),
         }

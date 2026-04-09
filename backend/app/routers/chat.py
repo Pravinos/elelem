@@ -1,5 +1,4 @@
 import json
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -17,14 +16,15 @@ router = APIRouter()
 async def chat(request: ChatRequest):
     payload = request.model_dump()
     manager = get_model_manager()
-
-    await manager.load_model(request.model)
+    await manager.acquire_inference_session(request.model)
 
     try:
         if not request.stream:
-            response = await chat_once(payload)
-            manager.last_used = datetime.now(timezone.utc)
-            return response
+            try:
+                response = await chat_once(payload)
+                return response
+            finally:
+                await manager.release_inference_session()
 
         async def sse_stream():
             try:
@@ -37,10 +37,12 @@ async def chat(request: ChatRequest):
                 err = {"error": f"Ollama connection error: {exc}"}
                 yield f"data: {json.dumps(err)}\n\n"
             finally:
-                manager.last_used = datetime.now(timezone.utc)
+                await manager.release_inference_session()
 
         return StreamingResponse(sse_stream(), media_type="text/event-stream")
     except httpx.HTTPStatusError as exc:
+        await manager.release_inference_session()
         raise HTTPException(status_code=502, detail=f"Ollama HTTP error: {exc}") from exc
     except httpx.HTTPError as exc:
+        await manager.release_inference_session()
         raise HTTPException(status_code=502, detail=f"Ollama connection error: {exc}") from exc
