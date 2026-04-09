@@ -1,197 +1,257 @@
-# Ollama Self-Hosted AI App
+# elelem 🖥️
 
-This monorepo provides a self-hosted chat app with:
+A self-hosted LLM chat app running on your own hardware.
+No cloud APIs, no token costs, no data leaving your network.
 
-- FastAPI backend in `backend/`
-- Next.js frontend in `frontend/`
+Built with FastAPI + Ollama on the backend and Next.js on the frontend,
+deployed as a monorepo on a Debian home server accessible over Tailscale.
 
-## Integration Guide
+---
 
-For a full step-by-step external API guide, see:
+## Stack
 
-- [docs/API-INTEGRATION-GUIDE.md](docs/API-INTEGRATION-GUIDE.md)
+- **Backend** — FastAPI, Python 3.11, httpx, Pydantic
+- **Frontend** — Next.js 14 (app router), TypeScript, Tailwind CSS
+- **LLM runtime** — Ollama (runs native on host, not in Docker)
+- **Models** — `llama3.2:3b`, `qwen2.5:3b` (more can be pulled anytime)
+- **Network** — Tailscale for private access, Cloudflare Tunnel for phase 2
 
-## External API Access
+---
 
-Yes. External applications can call the backend API directly.
+## Project Structure
+```text
+elelem/
+├── backend/             # FastAPI app
+│   └── app/
+│       ├── routers/     # chat, models endpoints
+│       ├── services/    # ollama client, model manager, idle watcher
+│       ├── middleware/  # API key auth
+│       └── schemas/     # Pydantic models
+├── frontend/            # Next.js app
+│   └── src/
+│       ├── app/         # pages
+│       ├── components/  # ChatWindow, MessageBubble, ModelSelector
+│       └── lib/         # typed API client
+├── docker-compose.yml
+├── docker-compose.prod.yml
+├── .env.example
+└── docs/
+  └── API-INTEGRATION-GUIDE.md
+```
 
-Base URL examples:
+---
 
-- Local network: `http://<server-ip>:8000`
-- Tailscale: `http://100.x.x.x:8000`
-- Phase 2 public: `https://api.yourdomain.com`
+## Setup
 
-All protected endpoints require this header:
+### Prerequisites
 
-- `X-API-Key: <your_api_key>`
+- Docker + Docker Compose
+- Ollama installed on the host machine
+- Tailscale (for private network access)
 
-The API key is configured by `API_KEY` in the root `.env` file.
+### 1. Install and configure Ollama
 
-## API Endpoints
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
 
-### Health
+# Configure for limited RAM (important on 8GB machines)
+sudo systemctl edit ollama
+```
 
-- Method: `GET`
-- Path: `/api/health`
-- Auth required: No
+Add:
+```ini
+[Service]
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_FLASH_ATTENTION=1"
+```
 
-Response:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ollama
 
+# Pull models
+ollama pull llama3.2:3b
+ollama pull qwen2.5:3b
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env
+nano .env
+```
+
+```env
+ENVIRONMENT=development
+
+# Backend
+OLLAMA_BASE_URL=http://localhost:11434
+API_KEY=your_secret_key
+ALLOWED_ORIGINS=http://localhost:3000,http://<tailscale-ip>:3000
+IDLE_TIMEOUT_MINUTES=5
+
+# Frontend
+NEXT_PUBLIC_API_URL=http://<tailscale-ip>:8000
+NEXT_PUBLIC_API_KEY=your_secret_key   # must match API_KEY
+```
+
+Get your Tailscale IP with `tailscale ip -4`.
+
+### 3. Start
+
+```bash
+docker compose up -d --build
+docker compose ps       # both containers should show running
+```
+
+If you change `NEXT_PUBLIC_API_URL` or `NEXT_PUBLIC_API_KEY`, rebuild the frontend so the new values are baked into the Next.js build:
+
+```bash
+docker compose build --no-cache frontend
+docker compose up -d frontend
+```
+
+Access at `http://<tailscale-ip>:3000` from any device on your Tailscale network.
+
+---
+
+## Model memory management
+
+Ollama keeps models loaded in RAM indefinitely by default.
+On a memory-constrained machine that's a problem — so elelem manages
+the model lifecycle explicitly.
+
+- **Load on demand** — model is loaded when a chat request comes in
+- **One model at a time** — switching models unloads the previous one first
+- **Idle unload** — model is evicted after `IDLE_TIMEOUT_MINUTES` of inactivity
+- **Clean shutdown** — model is unloaded when the container stops
+
+This keeps RAM free when you're not actively chatting.
+
+---
+
+## External API access
+
+Other apps can call the backend directly — elelem works as a private LLM API.
+
+| Phase | Base URL |
+|---|---|
+| Local | `http://localhost:8000` |
+| Tailscale | `http://<tailscale-ip>:8000` |
+| Phase 2 (public) | `https://api.yourdomain.com` |
+
+All protected endpoints require:
+
+```http
+X-API-Key: <your_api_key>
+```
+
+---
+
+## API reference
+
+### `GET /api/health`
+No auth required.
+```json
+{ "status": "ok", "ollama": true }
+```
+
+### `GET /api/models`
+Returns locally available Ollama models.
+```json
+{ "models": ["llama3.2:3b", "qwen2.5:3b"] }
+```
+
+### `GET /api/models/status`
+Returns currently loaded model and memory usage.
 ```json
 {
-  "status": "ok",
-  "ollama": true
+  "current_model": "llama3.2:3b",
+  "last_used": "2025-01-01T12:00:00",
+  "idle_seconds": 42,
+  "memory_used_gb": 2.1,
+  "ram_free_gb": 4.2
 }
 ```
 
-### Models
-
-- Method: `GET`
-- Path: `/api/models`
-- Auth required: Yes (`X-API-Key`)
-
-Response:
-
+### `POST /api/models/load`
+Manually preload a model into memory.
 ```json
-{
-  "models": ["llama3.2:3b", "mistral:7b"]
-}
+{ "model": "qwen2.5:3b" }
 ```
 
-### Chat
+### `POST /api/models/unload`
+Immediately evict the current model from memory.
 
-- Method: `POST`
-- Path: `/api/chat`
-- Auth required: Yes (`X-API-Key`)
-
-Request body:
-
+### `POST /api/chat`
 ```json
 {
   "model": "llama3.2:3b",
   "messages": [
-    {"role": "user", "content": "Write a haiku about home servers."}
+    { "role": "user", "content": "explain docker networking" }
   ],
   "stream": true
 }
 ```
 
-Behavior:
+`stream: false` — returns full response JSON.
+`stream: true` — returns `text/event-stream`, tokens arrive as SSE events.
 
-- `stream: false` returns the full Ollama chat response JSON.
-- `stream: true` returns `text/event-stream` and forwards chunks as SSE events.
+---
 
-## Streaming Format (SSE)
+## Streaming (SSE)
 
-When `stream: true`, each event is returned as an SSE line:
-
-```text
-data: { ...ollama_ndjson_chunk... }
-
-```
-
-Your client should:
-
-1. Read the HTTP response stream.
-2. Parse lines starting with `data:`.
-3. Parse JSON payload from each `data:` line.
-4. Append token content from `message.content` (or `response` fallback).
-
-## Example: cURL
-
-### Health
-
-```bash
-curl http://localhost:8000/api/health
-```
-
-### Models
-
-```bash
-curl -H "X-API-Key: changeme" \
-  http://localhost:8000/api/models
-```
-
-### Chat (non-streaming)
-
-```bash
-curl -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: changeme" \
-  -d '{
-    "model": "llama3.2:3b",
-    "messages": [{"role": "user", "content": "Hello"}],
-    "stream": false
-  }'
-```
-
-### Chat (streaming)
-
-```bash
-curl -N -X POST http://localhost:8000/api/chat \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: changeme" \
-  -d '{
-    "model": "llama3.2:3b",
-    "messages": [{"role": "user", "content": "Tell me a joke"}],
-    "stream": true
-  }'
-```
-
-## Example: JavaScript (External App)
+When `stream: true`, parse the response like this:
 
 ```ts
-async function streamChat() {
-  const res = await fetch("http://localhost:8000/api/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": "changeme"
-    },
-    body: JSON.stringify({
-      model: "llama3.2:3b",
-      messages: [{ role: "user", content: "Summarize this text" }],
-      stream: true
-    })
-  });
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = "";
 
-  if (!res.ok || !res.body) {
-    throw new Error(`Request failed: ${res.status}`);
-  }
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
 
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  buffer += decoder.decode(value, { stream: true });
+  const lines = buffer.split("\n");
+  buffer = lines.pop() ?? "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-      const jsonText = trimmed.slice(5).trim();
-      if (!jsonText) continue;
-
-      const chunk = JSON.parse(jsonText);
-      const token = chunk?.message?.content ?? chunk?.response ?? "";
-      if (token) {
-        process.stdout.write(token);
-      }
-    }
+  for (const line of lines) {
+    if (!line.trim().startsWith("data:")) continue;
+    const json = line.trim().slice(5).trim();
+    if (!json) continue;
+    const chunk = JSON.parse(json);
+    const token = chunk?.message?.content ?? chunk?.response ?? "";
+    if (token) process.stdout.write(token);
   }
 }
 ```
 
-## OpenAPI Docs
+---
 
-FastAPI also exposes interactive docs at:
+## Interactive docs
 
-- `/docs`
-- `/openapi.json`
+FastAPI auto-generates docs at `/docs` — useful for testing endpoints
+directly without writing curl commands. Auth middleware is intentionally
+skipped for `/docs`.
 
-Note: in this project, `/docs` is intentionally excluded from API key middleware.
+---
+
+## Phase 2 — going public
+
+When you're ready to expose elelem to the internet:
+
+1. Buy a domain (Cloudflare Registrar is cheapest, ~$10/yr)
+2. Install `cloudflared` on the server
+3. Create a tunnel — no open ports, no router config needed
+4. Update two env vars:
+
+```env
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+ALLOWED_ORIGINS=https://yourdomain.com
+```
+
+5. Switch to `docker-compose.prod.yml`
+
+No code changes required.
