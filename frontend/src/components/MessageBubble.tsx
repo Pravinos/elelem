@@ -25,7 +25,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
     >
       {isUser ? (
         <div className="max-w-[78%] text-right">
-          <div className="text-sm leading-relaxed text-slate-100">
+          <div className="border-r border-blue-300/35 pr-3 text-sm leading-relaxed text-slate-100">
             <p className="whitespace-pre-wrap">{message.content || " "}</p>
           </div>
           <p className="mt-1 text-right text-[11px] text-slate-500 opacity-0 transition group-hover:opacity-100">
@@ -34,7 +34,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         </div>
       ) : (
         <div className="flex max-w-[88%] items-start gap-3 py-0.5">
-          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-white/10 text-[11px] font-semibold text-slate-300/80">
+          <div className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full border border-white/10 text-[11px] font-semibold leading-none text-slate-300/80">
             e
           </div>
           <div className="min-w-0 border-l border-white/10 pl-3 text-sm leading-[1.7] text-slate-100/90">

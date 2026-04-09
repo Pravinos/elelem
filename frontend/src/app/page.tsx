@@ -100,7 +100,7 @@ export default function HomePage() {
                           {chat.model}
                         </span>
                       </div>
-                      <div className="mt-2 text-right">
+                      <div className="mt-2 text-left">
                         <span className="text-[11px] text-slate-400/45">
                           {formatRelativeTime(chat.updated_at)}
                         </span>
@@ -176,7 +176,7 @@ export default function HomePage() {
           onSubmit={handleSubmit}
           className="mx-4 mb-4 mt-3 rounded-[24px] border border-blue-300/[0.25] bg-blue-500/[0.08] px-4 py-3 transition-colors focus-within:border-blue-300/[0.45] focus-within:bg-blue-500/[0.12]"
         >
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
             <textarea
               value={input}
               onChange={(event) => setInput(event.target.value)}
