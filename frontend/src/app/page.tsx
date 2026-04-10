@@ -25,9 +25,20 @@ export default function HomePage() {
     handleNewChat,
     handleSelectChat,
     handleDeleteChat,
+    handleConfirmDeleteChat,
     handleStop,
+    handleSend,
     handleSubmit,
   } = useChatController();
+
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      if (canSend) {
+        void handleSend();
+      }
+    }
+  }
 
   return (
     <main className="relative mx-auto flex h-screen w-full max-w-7xl gap-0 px-0 py-0 text-slate-100/85 sm:px-0 sm:py-0">
@@ -107,32 +118,40 @@ export default function HomePage() {
                       </div>
                     </button>
 
-                    <button
-                      type="button"
-                      data-delete-control="true"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleDeleteChat(chat.id);
-                      }}
-                      className={[
-                        "absolute right-2 top-2 rounded px-1.5 py-0.5 text-sm transition",
-                        awaitingConfirm
-                          ? "bg-rose-500/20 text-rose-300 opacity-100"
-                          : "text-slate-500 opacity-0 hover:bg-slate-800 hover:text-rose-300 group-hover:opacity-100",
-                      ].join(" ")}
-                      aria-label="Delete chat"
-                    >
-                      x
-                    </button>
-
-                    {awaitingConfirm ? (
-                      <span
-                        data-delete-control="true"
-                        className="absolute right-8 top-2 rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-200"
+                    <div data-delete-control="true" className="absolute right-2 top-2 inline-block">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteChat(chat.id);
+                        }}
+                        className={[
+                          "rounded px-1.5 py-0.5 text-sm transition",
+                          awaitingConfirm
+                            ? "bg-rose-500/20 text-rose-300 opacity-100"
+                            : "text-slate-500 opacity-0 hover:bg-slate-800 hover:text-rose-300 group-hover:opacity-100",
+                        ].join(" ")}
+                        aria-label="Delete chat"
                       >
-                        delete?
-                      </span>
-                    ) : null}
+                        x
+                      </button>
+
+                      {awaitingConfirm ? (
+                        <span className="absolute right-[calc(100%+8px)] top-1/2 z-50 flex -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-lg border border-white/[0.12] bg-[rgba(20,20,28,0.95)] px-2.5 py-1.5 text-xs text-white/70">
+                          <span>delete?</span>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void handleConfirmDeleteChat(chat.id);
+                            }}
+                            className="font-medium text-[#ff6b6b] transition hover:text-[#ff4444]"
+                          >
+                            yes
+                          </button>
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })
@@ -172,40 +191,43 @@ export default function HomePage() {
 
         <ChatWindow messages={messages} showTypingIndicator={awaitingFirstToken} />
 
-        <form
-          onSubmit={handleSubmit}
-          className="mx-4 mb-4 mt-3 rounded-[24px] border border-blue-300/[0.25] bg-blue-500/[0.08] px-4 py-3 transition-colors focus-within:border-blue-300/[0.45] focus-within:bg-blue-500/[0.12]"
-        >
-          <div className="flex items-center gap-2">
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              rows={1}
-              placeholder={selectedModel ? "Ask anything..." : "Load models first..."}
-              className="max-h-32 min-h-[38px] flex-1 resize-none bg-transparent px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
-              disabled={loading || !selectedModel}
-            />
+        <div className="border-t border-white/[0.07] bg-white/[0.01] px-4 py-3 sm:px-5">
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-[24px] border border-blue-300/[0.25] bg-blue-500/[0.08] px-4 py-3 transition-colors focus-within:border-blue-300/[0.45] focus-within:bg-blue-500/[0.12]"
+          >
+            <div className="flex items-center gap-2">
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={handleInputKeyDown}
+                rows={1}
+                placeholder={selectedModel ? "Ask anything..." : "Load models first..."}
+                className="max-h-32 min-h-[38px] flex-1 resize-none bg-transparent px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500"
+                disabled={loading || !selectedModel}
+              />
 
-            {loading ? (
-              <button
-                type="button"
-                onClick={() => void handleStop()}
-                className="inline-flex h-8 min-w-[64px] items-center justify-center rounded-full bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-500"
-              >
-                Stop
-              </button>
-            ) : (
-              <button
-                type="submit"
-                disabled={!canSend}
-                aria-label="Send message"
-                className="h-8 w-8 rounded-full bg-blue-500/70 text-sm text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-700/70 disabled:text-slate-300/50"
-              >
-                &gt;
-              </button>
-            )}
-          </div>
-        </form>
+              {loading ? (
+                <button
+                  type="button"
+                  onClick={() => void handleStop()}
+                  className="inline-flex h-8 min-w-[64px] items-center justify-center rounded-full bg-rose-600 px-3 text-xs font-semibold text-white transition hover:bg-rose-500"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!canSend}
+                  aria-label="Send message"
+                  className="h-8 w-8 rounded-full bg-blue-500/70 text-sm text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-700/70 disabled:text-slate-300/50"
+                >
+                  &gt;
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
 
         {error ? (
           <div className="fixed bottom-6 left-6 z-[100] flex max-w-[280px] items-center gap-2 rounded-lg border border-rose-400/30 bg-rose-600/15 px-3 py-2 text-[0.8rem] text-slate-100/70 backdrop-blur-sm">

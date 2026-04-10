@@ -12,7 +12,7 @@ export default function ChatWindow({
   showTypingIndicator,
 }: ChatWindowProps) {
   return (
-    <div className="mx-3 mt-4 flex-1 overflow-y-auto rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-5 sm:mx-4 sm:px-5 sm:py-6">
+    <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-5 sm:py-6">
       <div className="mx-auto flex w-full max-w-[920px] flex-col gap-5">
         {messages.length === 0 ? (
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center text-slate-300/30">

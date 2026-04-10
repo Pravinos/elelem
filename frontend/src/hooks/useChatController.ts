@@ -208,13 +208,20 @@ export function useChatController() {
     }
   }
 
-  async function handleDeleteChat(chatId: string) {
+  function handleDeleteChat(chatId: string) {
+    if (loading) {
+      return;
+    }
+
+    setPendingDeleteId(chatId);
+  }
+
+  async function handleConfirmDeleteChat(chatId: string) {
     if (loading) {
       return;
     }
 
     if (pendingDeleteId !== chatId) {
-      setPendingDeleteId(chatId);
       return;
     }
 
@@ -261,9 +268,7 @@ export function useChatController() {
     }
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-
+  async function handleSend() {
     const content = input.trim();
     if (!content || !selectedModel || loading) {
       return;
@@ -356,6 +361,11 @@ export function useChatController() {
     }
   }
 
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    void handleSend();
+  }
+
   return {
     models,
     selectedModel,
@@ -376,7 +386,9 @@ export function useChatController() {
     handleNewChat,
     handleSelectChat,
     handleDeleteChat,
+    handleConfirmDeleteChat,
     handleStop,
+    handleSend,
     handleSubmit,
   };
 }
